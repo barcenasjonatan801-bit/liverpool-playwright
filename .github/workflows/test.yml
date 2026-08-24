@@ -1,0 +1,54 @@
+name: Liverpool E2E Tests
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-tests:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Install Playwright Firefox
+        run: >
+          mvn --batch-mode exec:java
+          -Dexec.mainClass=com.microsoft.playwright.CLI
+          -Dexec.args="install --with-deps firefox"
+
+      - name: Run headless tests
+        run: >
+          mvn --batch-mode clean test
+          -Dheadless=true
+          -Dbrowser=firefox
+
+      - name: Generate Allure HTML report
+        if: always()
+        run: mvn --batch-mode allure:report
+
+      - name: Upload Allure HTML report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: allure-html-report
+          path: target/site/allure-maven-plugin
+          if-no-files-found: error
+          retention-days: 14
