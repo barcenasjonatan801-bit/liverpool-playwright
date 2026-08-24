@@ -56,76 +56,80 @@ class LiverpoolSearchTest extends BaseTest {
         );
 
         /*
-         * La captura se registra antes de buscar,
-         * filtrar y ordenar.
+         * El try-with-resources garantiza que el listener
+         * se retire antes de que BaseTest cierre el contexto.
          */
-        SearchResponseCapture responseCapture =
-                new SearchResponseCapture(page);
+        try (SearchResponseCapture responseCapture =
+                     new SearchResponseCapture(page)) {
 
-        homePage.searchFor(searchTerm);
+            /*
+             * La captura ya está registrada antes de buscar,
+             * filtrar y ordenar.
+             */
+            homePage.searchFor(searchTerm);
 
-        resultsPage.waitUntilLoaded();
-        resultsPage.filterByColor(color);
-        resultsPage.sortByLowestPrice();
+            resultsPage.waitUntilLoaded();
+            resultsPage.filterByColor(color);
+            resultsPage.sortByLowestPrice();
 
-        /*
-         * Extraer los primeros cinco productos de la UI.
-         */
-        List<Product> uiProducts =
-                resultsPage.getFirstProducts(PRODUCT_LIMIT);
+            /*
+             * Extraer los primeros cinco productos de la UI.
+             */
+            List<Product> uiProducts =
+                    resultsPage.getFirstProducts(PRODUCT_LIMIT);
 
-        assertEquals(
-                PRODUCT_LIMIT,
-                uiProducts.size(),
-                "Deben extraerse exactamente cinco productos"
-        );
+            assertEquals(
+                    PRODUCT_LIMIT,
+                    uiProducts.size(),
+                    "Deben extraerse exactamente cinco productos"
+            );
 
-        printUiProducts(uiProducts);
+            printUiProducts(uiProducts);
+            assertProductsAreSorted(uiProducts);
 
-        assertProductsAreSorted(uiProducts);
+            /*
+             * Parte 2: obtener y procesar la última respuesta
+             * de /web-bff/product/search.
+             */
+            String responseBody =
+                    responseCapture.getLatestBody();
 
-        /*
-         * Parte 2: obtener y procesar la última respuesta
-         * de /web-bff/product/search.
-         */
-        String responseBody =
-                responseCapture.getLatestBody();
+            List<Product> networkProducts =
+                    responseParser.parseProducts(responseBody);
 
-        List<Product> networkProducts =
-                responseParser.parseProducts(responseBody);
+            assertFalse(
+                    networkProducts.isEmpty(),
+                    "La respuesta interceptada no contiene productos"
+            );
 
-        assertFalse(
-                networkProducts.isEmpty(),
-                "La respuesta interceptada no contiene productos"
-        );
+            ValidationResult validationResult =
+                    productValidator.validate(
+                            uiProducts,
+                            networkProducts
+                    );
 
-        ValidationResult validationResult =
-                productValidator.validate(
-                        uiProducts,
-                        networkProducts
-                );
+            printValidationResult(
+                    responseCapture.getLatestUrl(),
+                    networkProducts,
+                    validationResult
+            );
 
-        printValidationResult(
-                responseCapture.getLatestUrl(),
-                networkProducts,
-                validationResult
-        );
-
-        /*
-         * Requisito principal de la task:
-         * al menos 3 de los 5 productos UI deben aparecer
-         * en la respuesta consumida por el frontend.
-         */
-        assertTrue(
-                validationResult.matchedProducts()
-                        >= MINIMUM_NETWORK_MATCHES,
-                String.format(
-                        "Se esperaban al menos %d coincidencias, "
-                                + "pero solamente se encontraron %d",
-                        MINIMUM_NETWORK_MATCHES,
-                        validationResult.matchedProducts()
-                )
-        );
+            /*
+             * Requisito principal de la task:
+             * al menos 3 de los 5 productos UI deben aparecer
+             * en la respuesta consumida por el frontend.
+             */
+            assertTrue(
+                    validationResult.matchedProducts()
+                            >= MINIMUM_NETWORK_MATCHES,
+                    String.format(
+                            "Se esperaban al menos %d coincidencias, "
+                                    + "pero solamente se encontraron %d",
+                            MINIMUM_NETWORK_MATCHES,
+                            validationResult.matchedProducts()
+                    )
+            );
+        }
     }
 
     private void printUiProducts(
@@ -194,10 +198,7 @@ class LiverpoolSearchTest extends BaseTest {
         );
 
         if (validationResult.discrepancies().isEmpty()) {
-            System.out.println(
-                    "Discrepancias: ninguna"
-            );
-
+            System.out.println("Discrepancias: ninguna");
             return;
         }
 
@@ -206,9 +207,7 @@ class LiverpoolSearchTest extends BaseTest {
         for (String discrepancy
                 : validationResult.discrepancies()) {
 
-            System.out.println(
-                    " - " + discrepancy
-            );
+            System.out.println(" - " + discrepancy);
         }
     }
 }
