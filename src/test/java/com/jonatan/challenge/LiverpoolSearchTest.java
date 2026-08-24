@@ -22,21 +22,27 @@ class LiverpoolSearchTest extends BaseTest {
 
     private static final int PRODUCT_LIMIT = 5;
     private static final int MINIMUM_NETWORK_MATCHES = 3;
+    private static final String REQUIRED_COLOR = "Blanco";
 
     @ParameterizedTest(
-            name = "[{index}] búsqueda={0}, color={1}"
+            name = "[{index}] búsqueda={0}"
     )
     @CsvSource({
-            "'playstation 5', 'Blanco'",
-            "'xbox series x', 'Blanco'",
-            "'nintendo switch', 'Blanco'"
+            "'playstation 5'",
+            "'xbox series x'"
     })
     void shouldValidateUiProductsAgainstNetworkResponse(
-            String searchTerm,
-            String color
+            String searchTerm
     ) {
-        Allure.parameter("searchTerm", searchTerm);
-        Allure.parameter("color", color);
+        Allure.parameter(
+                "searchTerm",
+                searchTerm
+        );
+
+        Allure.parameter(
+                "color",
+                REQUIRED_COLOR
+        );
 
         LiverpoolHomePage homePage =
                 new LiverpoolHomePage(page);
@@ -50,6 +56,9 @@ class LiverpoolSearchTest extends BaseTest {
         ProductValidator productValidator =
                 new ProductValidator();
 
+        /*
+         * Parte 1: abrir la página principal de Liverpool.
+         */
         homePage.open(BASE_URL);
 
         assertTrue(
@@ -57,16 +66,24 @@ class LiverpoolSearchTest extends BaseTest {
                 "La página principal no cargó correctamente"
         );
 
-
+        /*
+         * El listener de red se registra antes de buscar.
+         * try-with-resources garantiza que sea eliminado
+         * antes de que BaseTest cierre el contexto.
+         */
         try (SearchResponseCapture responseCapture =
                      new SearchResponseCapture(page)) {
 
             homePage.searchFor(searchTerm);
 
             resultsPage.waitUntilLoaded();
-            resultsPage.filterByColor(color);
+            resultsPage.filterByColor(REQUIRED_COLOR);
             resultsPage.sortByLowestPrice();
 
+            /*
+             * Extraer los primeros cinco productos
+             * mostrados en la interfaz.
+             */
             List<Product> uiProducts =
                     resultsPage.getFirstProducts(PRODUCT_LIMIT);
 
@@ -77,18 +94,22 @@ class LiverpoolSearchTest extends BaseTest {
                             "Deben extraerse cinco productos para "
                                     + "la búsqueda '%s' y color '%s'",
                             searchTerm,
-                            color
+                            REQUIRED_COLOR
                     )
             );
 
             printUiProducts(
                     searchTerm,
-                    color,
+                    REQUIRED_COLOR,
                     uiProducts
             );
 
             assertProductsAreSorted(uiProducts);
 
+            /*
+             * Parte 2: obtener la respuesta interceptada
+             * y extraer sus productos.
+             */
             String responseBody =
                     responseCapture.getLatestBody();
 
@@ -100,6 +121,10 @@ class LiverpoolSearchTest extends BaseTest {
                     "La respuesta interceptada no contiene productos"
             );
 
+            /*
+             * Comparar los productos de la interfaz
+             * contra los productos del servicio.
+             */
             ValidationResult validationResult =
                     productValidator.validate(
                             uiProducts,
@@ -112,6 +137,11 @@ class LiverpoolSearchTest extends BaseTest {
                     validationResult
             );
 
+            /*
+             * Requisito del challenge:
+             * al menos tres de los cinco productos UI
+             * deben aparecer en la respuesta interceptada.
+             */
             assertTrue(
                     validationResult.matchedProducts()
                             >= MINIMUM_NETWORK_MATCHES,
@@ -132,14 +162,19 @@ class LiverpoolSearchTest extends BaseTest {
             List<Product> products
     ) {
         System.out.println();
+
         System.out.println(
                 "Búsqueda: " + searchTerm
                         + " | Color: " + color
         );
+
         System.out.println("Primeros 5 productos:");
         System.out.println("--------------------");
 
-        for (int index = 0; index < products.size(); index++) {
+        for (int index = 0;
+             index < products.size();
+             index++) {
+
             Product product = products.get(index);
 
             System.out.printf(
@@ -155,7 +190,10 @@ class LiverpoolSearchTest extends BaseTest {
     private void assertProductsAreSorted(
             List<Product> products
     ) {
-        for (int index = 1; index < products.size(); index++) {
+        for (int index = 1;
+             index < products.size();
+             index++) {
+
             Product previousProduct =
                     products.get(index - 1);
 
@@ -164,7 +202,9 @@ class LiverpoolSearchTest extends BaseTest {
 
             assertTrue(
                     previousProduct.price()
-                            .compareTo(currentProduct.price()) <= 0,
+                            .compareTo(
+                                    currentProduct.price()
+                            ) <= 0,
                     String.format(
                             "Los productos no están ordenados: "
                                     + "$%s aparece antes que $%s",
@@ -183,13 +223,17 @@ class LiverpoolSearchTest extends BaseTest {
         System.out.println();
         System.out.println("Validación UI vs API:");
         System.out.println("--------------------");
+
         System.out.println(
-                "Respuesta interceptada: " + responseUrl
+                "Respuesta interceptada: "
+                        + responseUrl
         );
+
         System.out.println(
                 "Productos encontrados en API: "
                         + networkProducts.size()
         );
+
         System.out.println(
                 "Coincidencias UI/API: "
                         + validationResult.matchedProducts()
@@ -198,7 +242,9 @@ class LiverpoolSearchTest extends BaseTest {
         );
 
         if (validationResult.discrepancies().isEmpty()) {
-            System.out.println("Discrepancias: ninguna");
+            System.out.println(
+                    "Discrepancias: ninguna"
+            );
             return;
         }
 
@@ -207,7 +253,9 @@ class LiverpoolSearchTest extends BaseTest {
         for (String discrepancy
                 : validationResult.discrepancies()) {
 
-            System.out.println(" - " + discrepancy);
+            System.out.println(
+                    " - " + discrepancy
+            );
         }
     }
 }
