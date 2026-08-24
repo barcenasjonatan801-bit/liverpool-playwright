@@ -21,6 +21,7 @@
         <jackson.version>2.22.2</jackson.version>
         <allure.version>2.35.4</allure.version>
         <allure.maven.version>3.0.2</allure.maven.version>
+        <axe.version>4.13.0</axe.version>
     </properties>
 
     <dependencies>
@@ -40,13 +41,19 @@
         </dependency>
 
         <dependency>
+            <groupId>com.deque.html.axe-core</groupId>
+            <artifactId>playwright</artifactId>
+            <version>${axe.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <version>${jackson.version}</version>
             <scope>test</scope>
         </dependency>
 
-        <!-- Framework para crear las pruebas -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>

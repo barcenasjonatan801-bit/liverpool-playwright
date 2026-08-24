@@ -8,7 +8,9 @@ import com.jonatan.challenge.pages.LiverpoolHomePage;
 import com.jonatan.challenge.pages.SearchResultsPage;
 import com.jonatan.challenge.validation.ProductValidator;
 import com.jonatan.challenge.validation.ValidationResult;
-import org.junit.jupiter.api.Test;
+import io.qameta.allure.Allure;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.List;
 
@@ -21,17 +23,20 @@ class LiverpoolSearchTest extends BaseTest {
     private static final int PRODUCT_LIMIT = 5;
     private static final int MINIMUM_NETWORK_MATCHES = 3;
 
-    @Test
-    void shouldValidateUiProductsAgainstNetworkResponse() {
-        String searchTerm = System.getProperty(
-                "searchTerm",
-                "playstation 5"
-        );
-
-        String color = System.getProperty(
-                "color",
-                "Blanco"
-        );
+    @ParameterizedTest(
+            name = "[{index}] búsqueda={0}, color={1}"
+    )
+    @CsvSource({
+            "'playstation 5', 'Blanco'",
+            "'xbox series x', 'Blanco'",
+            "'nintendo switch', 'Blanco'"
+    })
+    void shouldValidateUiProductsAgainstNetworkResponse(
+            String searchTerm,
+            String color
+    ) {
+        Allure.parameter("searchTerm", searchTerm);
+        Allure.parameter("color", color);
 
         LiverpoolHomePage homePage =
                 new LiverpoolHomePage(page);
@@ -45,9 +50,6 @@ class LiverpoolSearchTest extends BaseTest {
         ProductValidator productValidator =
                 new ProductValidator();
 
-        /*
-         * Parte 1: abrir Liverpool.
-         */
         homePage.open(BASE_URL);
 
         assertTrue(
@@ -55,42 +57,38 @@ class LiverpoolSearchTest extends BaseTest {
                 "La página principal no cargó correctamente"
         );
 
-        /*
-         * El try-with-resources garantiza que el listener
-         * se retire antes de que BaseTest cierre el contexto.
-         */
+
         try (SearchResponseCapture responseCapture =
                      new SearchResponseCapture(page)) {
 
-            /*
-             * La captura ya está registrada antes de buscar,
-             * filtrar y ordenar.
-             */
             homePage.searchFor(searchTerm);
 
             resultsPage.waitUntilLoaded();
             resultsPage.filterByColor(color);
             resultsPage.sortByLowestPrice();
 
-            /*
-             * Extraer los primeros cinco productos de la UI.
-             */
             List<Product> uiProducts =
                     resultsPage.getFirstProducts(PRODUCT_LIMIT);
 
             assertEquals(
                     PRODUCT_LIMIT,
                     uiProducts.size(),
-                    "Deben extraerse exactamente cinco productos"
+                    String.format(
+                            "Deben extraerse cinco productos para "
+                                    + "la búsqueda '%s' y color '%s'",
+                            searchTerm,
+                            color
+                    )
             );
 
-            printUiProducts(uiProducts);
+            printUiProducts(
+                    searchTerm,
+                    color,
+                    uiProducts
+            );
+
             assertProductsAreSorted(uiProducts);
 
-            /*
-             * Parte 2: obtener y procesar la última respuesta
-             * de /web-bff/product/search.
-             */
             String responseBody =
                     responseCapture.getLatestBody();
 
@@ -114,17 +112,13 @@ class LiverpoolSearchTest extends BaseTest {
                     validationResult
             );
 
-            /*
-             * Requisito principal de la task:
-             * al menos 3 de los 5 productos UI deben aparecer
-             * en la respuesta consumida por el frontend.
-             */
             assertTrue(
                     validationResult.matchedProducts()
                             >= MINIMUM_NETWORK_MATCHES,
                     String.format(
-                            "Se esperaban al menos %d coincidencias, "
-                                    + "pero solamente se encontraron %d",
+                            "Para '%s' se esperaban al menos %d "
+                                    + "coincidencias, pero se encontraron %d",
+                            searchTerm,
                             MINIMUM_NETWORK_MATCHES,
                             validationResult.matchedProducts()
                     )
@@ -133,9 +127,15 @@ class LiverpoolSearchTest extends BaseTest {
     }
 
     private void printUiProducts(
+            String searchTerm,
+            String color,
             List<Product> products
     ) {
         System.out.println();
+        System.out.println(
+                "Búsqueda: " + searchTerm
+                        + " | Color: " + color
+        );
         System.out.println("Primeros 5 productos:");
         System.out.println("--------------------");
 

@@ -2,6 +2,7 @@ package com.jonatan.challenge.pages;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
+import com.microsoft.playwright.TimeoutError;
 import com.microsoft.playwright.options.WaitUntilState;
 import com.microsoft.playwright.options.AriaRole;
 
@@ -53,15 +54,26 @@ public class LiverpoolHomePage {
                         .setExact(true)
         );
 
-        exactSuggestion.waitFor(
-                new Locator.WaitForOptions()
-                        .setTimeout(20_000)
-        );
+        try {
+            /*
+             * Liverpool normalmente muestra una sugerencia.
+             * Usarla representa el comportamiento habitual.
+             */
+            exactSuggestion.waitFor(
+                    new Locator.WaitForOptions()
+                            .setTimeout(5_000)
+            );
 
-        exactSuggestion.click();
+            exactSuggestion.click();
+
+        } catch (TimeoutError exception) {
+
+            searchInput.press("Enter");
+        }
 
         page.waitForURL(
-                "**/tienda?s=*",
+                url -> url.contains("/tienda")
+                        && url.contains("s="),
                 new Page.WaitForURLOptions()
                         .setTimeout(30_000)
         );
