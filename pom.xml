@@ -84,6 +84,7 @@
 
                 <configuration>
                     <reportVersion>2.39.0</reportVersion>
+                    <singleFile>true</singleFile>
                 </configuration>
             </plugin>
 
